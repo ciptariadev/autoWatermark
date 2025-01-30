@@ -64,17 +64,40 @@ const supportedFormats = [
   ".webp",
 ];
 
-fs.readdir(inputDir, (err, files) => {
-  if (err) {
-    console.error("Error reading directory:", err);
-    return;
+// Add new recursive processing function
+async function processDirectory(inputDir, outputDir, relativePath = "") {
+  const currentInputDir = path.join(inputDir, relativePath);
+  const currentOutputDir = path.join(outputDir, relativePath);
+
+  // Create output directory if it doesn't exist
+  if (!fs.existsSync(currentOutputDir)) {
+    fs.mkdirSync(currentOutputDir, { recursive: true });
   }
 
-  files.forEach((file) => {
-    if (supportedFormats.includes(path.extname(file).toLowerCase())) {
-      const inputPath = path.join(inputDir, file);
-      const outputPath = path.join(outputDir, file);
-      addWatermark(inputPath, outputPath);
+  const files = fs.readdirSync(currentInputDir);
+
+  for (const file of files) {
+    const inputPath = path.join(currentInputDir, file);
+    const stat = fs.statSync(inputPath);
+
+    if (stat.isDirectory()) {
+      // Recursively process subdirectories
+      await processDirectory(
+        inputDir,
+        outputDir,
+        path.join(relativePath, file)
+      );
+    } else if (supportedFormats.includes(path.extname(file).toLowerCase())) {
+      // Process image files
+      const outputPath = path.join(currentOutputDir, file);
+      await addWatermark(inputPath, outputPath);
     }
-  });
-});
+  }
+}
+
+// Replace the old directory reading code with new recursive processing
+try {
+  processDirectory(inputDir, outputDir);
+} catch (err) {
+  console.error("Error processing directory:", err);
+}
