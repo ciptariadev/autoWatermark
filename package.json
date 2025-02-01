@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "start": "node autoWatermark.js"
+    "start": "node autoWatermark.js",
+    "startfull": "node autoWatermarkFull.js"
   },
   "dependencies": {
     "jimp": "^0.22.10"

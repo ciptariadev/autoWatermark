@@ -10,7 +10,7 @@ if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir);
 }
 
-async function addWatermark(inputPath, outputPath) {
+async function addWatermarkPattern(inputPath, outputPath) {
   try {
     const [image, font] = await Promise.all([
       Jimp.read(inputPath),
@@ -18,29 +18,50 @@ async function addWatermark(inputPath, outputPath) {
     ]);
 
     const watermarkLayer = new Jimp(image.getWidth(), image.getHeight());
-
     const watermarkText = "CiptariaAi";
     const textWidth = Jimp.measureText(font, watermarkText);
     const textHeight = Jimp.measureTextHeight(font, watermarkText);
 
-    const x = (image.getWidth() - textWidth) / 2;
-    const y = (image.getHeight() - textHeight) / 2;
+    // Adjust spacing for denser pattern
+    const spacingX = textWidth * 1.5; // Reduced from 2 to 1.5
+    const spacingY = textHeight * 1.2; // Reduced from 2 to 1.2
 
-    watermarkLayer.print(
-      font,
-      x,
-      y,
-      {
-        text: watermarkText,
-        alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
-        alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE,
-      },
-      textWidth,
-      textHeight
-    );
+    // Calculate dimensions for rotated pattern
+    const angle = -15; // Tilt angle in degrees
+    const radians = (angle * Math.PI) / 180;
+    const cos = Math.cos(radians);
+    const sin = Math.sin(radians);
 
+    // Expand pattern area to account for rotation
+    const expandedWidth = image.getWidth() * 1.5;
+    const expandedHeight = image.getHeight() * 1.5;
+
+    // Create tilted repeating pattern
+    for (let y = -expandedHeight / 2; y < expandedHeight; y += spacingY) {
+      for (let x = -expandedWidth / 2; x < expandedWidth; x += spacingX) {
+        // Apply rotation transformation
+        const rotX = x * cos - y * sin;
+        const rotY = x * sin + y * cos;
+
+        watermarkLayer.print(
+          font,
+          Math.round(rotX + image.getWidth() / 2),
+          Math.round(rotY + image.getHeight() / 2),
+          {
+            text: watermarkText,
+            alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+            alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE,
+          },
+          textWidth,
+          textHeight
+        );
+      }
+    }
+
+    // Apply opacity to watermark layer
     watermarkLayer.opacity(0.95);
 
+    // Composite watermark onto original image
     image.composite(watermarkLayer, 0, 0, {
       mode: Jimp.BLEND_SOURCE_OVER,
       opacitySource: 0.5,
@@ -54,6 +75,7 @@ async function addWatermark(inputPath, outputPath) {
   }
 }
 
+// Supported formats array
 const supportedFormats = [
   ".jpg",
   ".jpeg",
@@ -64,7 +86,7 @@ const supportedFormats = [
   ".webp",
 ];
 
-// Add new recursive processing function
+// Recursive directory processing function
 async function processDirectory(inputDir, outputDir, relativePath = "") {
   const currentInputDir = path.join(inputDir, relativePath);
   const currentOutputDir = path.join(outputDir, relativePath);
@@ -90,12 +112,12 @@ async function processDirectory(inputDir, outputDir, relativePath = "") {
     } else if (supportedFormats.includes(path.extname(file).toLowerCase())) {
       // Process image files
       const outputPath = path.join(currentOutputDir, file);
-      await addWatermark(inputPath, outputPath);
+      await addWatermarkPattern(inputPath, outputPath);
     }
   }
 }
 
-// Replace the old directory reading code with new recursive processing
+// Start processing
 try {
   processDirectory(inputDir, outputDir);
 } catch (err) {
